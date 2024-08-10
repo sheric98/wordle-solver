@@ -1,5 +1,6 @@
 WORD_LENGTH = 5
 NUMBER_OF_GUESSES = 6
+ALPHABET_LETTERS = 26
 
 ALL_WORDS_PATH = 'all-words.txt'
 WORD_SCORES_PATH = 'word-scores.txt'

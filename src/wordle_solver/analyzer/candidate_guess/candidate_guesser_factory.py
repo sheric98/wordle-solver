@@ -6,7 +6,6 @@ from wordle_solver.analyzer.candidate_guess.common_chars_guesser import CommonCh
 from wordle_solver.analyzer.candidate_guess.guesser_type import GuesserType
 from wordle_solver.analyzer.candidate_guess.no_guesser import NoGuesser
 from wordle_solver.analyzer.candidate_guess.unused_chars_guesser import UnusedCharsGuesser
-from wordle_solver.common.trie import Trie
 
 
 class CandidateGuesserFactory:
@@ -15,7 +14,7 @@ class CandidateGuesserFactory:
         self._num_common_chars = num_common_chars
         self._num_candidate_guesses = num_candidate_guesses
 
-    def build(self) -> Callable[[Trie], CandidateGuesser]:
+    def build(self) -> Callable[[], CandidateGuesser]:
         if self._guess_type == GuesserType.NoGuess:
             return NoGuesser
         elif self._guess_type == GuesserType.AnswerGuess:
