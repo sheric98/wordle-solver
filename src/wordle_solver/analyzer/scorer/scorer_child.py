@@ -5,7 +5,6 @@ from typing import Iterable, Optional
 from uuid import uuid4
 
 from wordle_solver.common.guess_result import GuessResult, to_res_arr
-from wordle_solver.common.single_result import SingleResult
 from wordle_solver.common.solve_status.solve_status_np import SolveStatusNp
 from wordle_solver.common.word_reducer import WordReducer
 
@@ -50,6 +49,7 @@ class ScorerChild:
         self._words = words
         self._ss = SolveStatusNp()
         self._word_reducer = WordReducer(words, self._ss)
+        self._cache = {}
         self._id = str(uuid4())
         self._update_id = -1
         self._reset_id = -1
@@ -91,10 +91,13 @@ class ScorerChild:
         dists = []
         for res_arr in res_arrs:
             self._ss.try_add_word(guess_arr, res_arr)
-            self._word_reducer.try_update()
-            distribution = self._best_distr(depth - 1)
-            self._word_reducer.undo()
-            dists.append(distribution)
+            key = self._ss.key()
+            if key not in self._cache:
+                self._word_reducer.try_update()
+                distribution = self._best_distr(depth - 1)
+                self._word_reducer.undo()
+                self._cache[key] = distribution
+            dists.append(self._cache[key])
             self._ss.undo()
 
         r_dist = self._aggregate_distributions(cnts, dists)
@@ -135,6 +138,7 @@ class ScorerChild:
         word_arr = self._word_reducer.get_guess_arr(word)
         self._ss.update(word_arr, res_arr)
         self._word_reducer.update()
+        self._cache.clear()
 
         self._udpate_id = update_id
         return self._id
