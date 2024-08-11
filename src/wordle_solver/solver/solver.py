@@ -31,13 +31,13 @@ def _get_input() -> list[SingleResult]:
 
 
 class Solver:
-    def __init__(self, candidate_guesser_builder: Callable[[], CandidateGuesser], use_computed_start: bool = True, max_search_depth: Optional[int] = None):
+    def __init__(self, candidate_guesser_builder: Callable[[], CandidateGuesser], num_processes: int, use_computed_start: bool = True, max_search_depth: Optional[int] = None):
         self._all_words = read_all_words()
         word = None
         if use_computed_start:
             word = get_best_starting_word()
 
-        self._analyzer = Analyzer(candidate_guesser_builder, self._all_words, word, max_search_depth)
+        self._analyzer = Analyzer(candidate_guesser_builder, self._all_words, word, num_processes, max_search_depth)
 
     def play(self):
         while True:

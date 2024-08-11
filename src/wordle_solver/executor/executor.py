@@ -5,13 +5,12 @@ from wordle_solver.analyzer.analyzer import Analyzer
 from wordle_solver.analyzer.candidate_guess.candidate_guesser import CandidateGuesser
 from wordle_solver.analyzer.scorer.scorer import get_results
 from wordle_solver.common.single_result import SingleResult
-from wordle_solver.common.trie import Trie
 from wordle_solver.util.constants import NUMBER_OF_GUESSES
 from wordle_solver.util.utils import read_all_words, get_best_starting_word, get_previous_answers
 
 
 class Executor:
-    def __init__(self, candidate_guesser_builder: Callable[[Trie], CandidateGuesser]):
+    def __init__(self, candidate_guesser_builder: Callable[[], CandidateGuesser]):
         self._all_words = read_all_words()
         self._starting_word = get_best_starting_word()
         self._previous_answers = get_previous_answers()
@@ -63,4 +62,4 @@ class Executor:
         return None
 
     def _build_analyzer(self) -> Analyzer:
-        return Analyzer(self._candidate_guesser_builder, self._all_words, self._starting_word, 1, progress_bar=False)
+        return Analyzer(self._candidate_guesser_builder, self._all_words, self._starting_word, max_search_depth=1, progress_bar=False)

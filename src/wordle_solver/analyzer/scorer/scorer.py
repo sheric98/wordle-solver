@@ -2,7 +2,10 @@ from collections import Counter, defaultdict, deque
 from decimal import Decimal
 from tqdm import tqdm
 from typing import Any, Iterable, Optional
+import numpy as np
 
+from wordle_solver.analyzer.scorer.scorer_child import get_base_word_and_distr
+from wordle_solver.analyzer.scorer.scorer_pool import ScorerPool
 from wordle_solver.analyzer.candidate_guess.candidate_guesser import CandidateGuesser
 from wordle_solver.common.word_reducer import WordReducer
 from wordle_solver.common.single_result import SingleResult
@@ -11,34 +14,10 @@ from wordle_solver.common.solve_status.solve_status_np import SolveStatusNp
 GUESS_THRESHOLD = Decimal('0.8')
 
 
-def get_results(ans: str, guess: str) -> tuple[tuple[SingleResult, ...], tuple[tuple[SingleResult, int, str], ...]]:
-    ret = []
-    counts = Counter(ans)
-    for i, (ans_c, guess_c) in enumerate(zip(ans, guess)):
-        if ans_c == guess_c:
-            counts[ans_c] -= 1
-            if counts[ans_c] == 0:
-                del counts[ans_c]
-
-    for i, (ans_c, guess_c) in enumerate(zip(ans, guess)):
-        if ans_c == guess_c:
-            color = SingleResult.GREEN
-        elif guess_c in counts:
-            counts[guess_c] -= 1
-            if counts[guess_c] == 0:
-                del counts[guess_c]
-            color = SingleResult.YELLOW
-        else:
-            color = SingleResult.GRAY
-
-        ret.append(color)
-
-    return tuple(ret)
-
-
 class Scorer:
     def __init__(
             self,
+            scorer_pool: ScorerPool,
             word_reducer: WordReducer,
             solve_status: SolveStatusNp,
             candidate_guesser: CandidateGuesser,
@@ -48,6 +27,7 @@ class Scorer:
             curr_guesses: int = 0,
             progress_bar: bool = True):
         
+        self._scorer_pool = scorer_pool
         self._word_reducer = word_reducer
         self._ss = solve_status
         self._candidate_guesser = candidate_guesser
@@ -57,12 +37,21 @@ class Scorer:
         self._curr_guesses = curr_guesses
         self._progress_bar = progress_bar
 
-    def get_best_word(self):
+    def get_best_word(self) -> str:
         print(self._word_reducer.num_answers())
-        res, _ = self._get_best_word(show_progress=self._progress_bar)
+
+        remaining_guesses = self._max_guesses - self._curr_guesses
+        depth = min(remaining_guesses - 1, self._max_search_depth)
+
         self._curr_guesses += 1
 
-        return res
+        if (res := get_base_word_and_distr(self._word_reducer, depth == 0)) is not None:
+            return res[0]
+
+        itr = range(len(self._full_words))
+        best_idx = np.argmax(self._scorer_pool.process(itr, depth, len(self._full_words)))
+
+        return self._full_words[best_idx]
 
     def _score_for_dist(self, probs: deque[Decimal]) -> Decimal:
         multiplier = Decimal(1)
