@@ -1,11 +1,35 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 import numpy as np
 
 from wordle_solver.common.single_result import SingleResult
 from wordle_solver.common.word_reducer_constants import GUARANTEED, YELLOW
 from wordle_solver.util.constants import WORD_LENGTH
 
-type GuessResult = tuple[str, list[SingleResult]]
+type GuessResult = list[SingleResult]
+
+
+def get_guess_result(guess: str, ans: str) -> GuessResult:
+    char_counts = Counter(ans)
+    ret = []
+    
+    for g_c, r_c in zip(guess, ans):
+        if g_c == r_c:
+            char_counts[g_c] -= 1
+            if char_counts[g_c] == 0:
+                del char_counts[g_c]
+
+    for g_c, r_c in zip(guess, ans):
+        if g_c == r_c:
+            ret.append(SingleResult.GREEN)
+        elif g_c in char_counts:
+            ret.append(SingleResult.YELLOW)
+            char_counts[g_c] -= 1
+            if char_counts[g_c] == 0:
+                del char_counts[g_c]
+        else:
+            ret.append(SingleResult.GRAY)
+
+    return ret
 
 
 def to_res_arr(guess: str, res: GuessResult) -> np.ndarray:

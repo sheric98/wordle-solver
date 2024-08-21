@@ -23,11 +23,19 @@ class Analyzer:
         self._ss = SolveStatusNp()
         self._word_reducer = WordReducer(full_words, self._ss)
 
-        self._scorer_pool = ScorerPool(num_processes, full_words)
-
         if max_search_depth is None:
             max_search_depth = NUMBER_OF_GUESSES
+        max_search_depth = min(max_search_depth, NUMBER_OF_GUESSES)
         curr_guesses = 0 if starting_word is None else 1
+
+        self._scorer_pool = ScorerPool(
+            num_processes,
+            full_words,
+            curr_guesses,
+            NUMBER_OF_GUESSES,
+            max_search_depth,
+            progress_bar)
+        
         # candidate_guesser = candidate_guesser_builder(self._trie)
         candidate_guesser = None
         self._scorer = Scorer(
@@ -41,6 +49,7 @@ class Analyzer:
             curr_guesses,
             progress_bar=progress_bar)
         self._word = starting_word
+        self._starting_word = starting_word
 
     def update(self, results: GuessResult, word=None):
         if word is None:
@@ -56,4 +65,13 @@ class Analyzer:
         if self._word is None:
             self._word = self._scorer.get_best_word()
         return self._word
+    
+    def reset(self):
+        self._ss = SolveStatusNp()
+        self._word_reducer = WordReducer(self._full_words, self._ss)
+
+        self._scorer_pool.reset()
+        self._scorer.reset(self._word_reducer, self._ss)
+
+        self._word = self._starting_word
     

@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from wordle_solver.analyzer.candidate_guess.candidate_guesser_factory import CandidateGuesserFactory
 from wordle_solver.analyzer.candidate_guess.guesser_type import GuesserType
@@ -8,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-g', '--candidate_guessing_strategy', type=GuesserType.from_string, default=GuesserType.NoGuess)
 parser.add_argument('--num_common_chars', type=int, default=2)
 parser.add_argument('--num_candidate_guesses', type=int, default=100)
+parser.add_argument('--num_processes', type=int, default=os.cpu_count())
 
 
 def main():
@@ -15,7 +17,7 @@ def main():
 
     candidate_guesser_factory = CandidateGuesserFactory(args.candidate_guessing_strategy, args.num_common_chars, args.num_candidate_guesses)
     candidate_guesser_builder = candidate_guesser_factory.build()
-    executor = Executor(candidate_guesser_builder)
+    executor = Executor(candidate_guesser_builder, args.num_processes)
 
     executor.execute()
 

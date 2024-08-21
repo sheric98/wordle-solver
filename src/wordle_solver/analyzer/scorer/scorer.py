@@ -26,7 +26,8 @@ class Scorer:
             max_guesses: int,
             curr_guesses: int = 0,
             progress_bar: bool = True):
-        
+        self._base_guesses = curr_guesses
+
         self._scorer_pool = scorer_pool
         self._word_reducer = word_reducer
         self._ss = solve_status
@@ -38,109 +39,26 @@ class Scorer:
         self._progress_bar = progress_bar
 
     def get_best_word(self) -> str:
-        print(self._word_reducer.num_answers())
+        if self._progress_bar:
+            print(f'Reduced search space to: {self._word_reducer.num_answers()}')
 
         remaining_guesses = self._max_guesses - self._curr_guesses
         depth = min(remaining_guesses - 1, self._max_search_depth)
 
+
+        if (res := get_base_word_and_distr(self._word_reducer, self._max_guesses, self._max_search_depth, self._curr_guesses, 0)) is not None:
+            self._curr_guesses += 1
+            return res[0]
+        
         self._curr_guesses += 1
 
-        if (res := get_base_word_and_distr(self._word_reducer, depth == 0)) is not None:
-            return res[0]
+        itr = self._word_reducer.get_top_candidates()
+        best_idx = np.argmin(self._scorer_pool.process(itr, len(itr)))
 
-        itr = range(len(self._full_words))
-        best_idx = np.argmax(self._scorer_pool.process(itr, depth, len(self._full_words)))
-
-        return self._full_words[best_idx]
-
-    def _score_for_dist(self, probs: deque[Decimal]) -> Decimal:
-        multiplier = Decimal(1)
-
-        score = Decimal(0)
-        for prob in probs:
-            score += multiplier * prob
-            multiplier /= Decimal(2)
-
-        return score
-
-    def _aggregate_distributions(self, weights: Iterable[int], distributions: Iterable[deque[Decimal]]) -> deque[Decimal]:
-        ret = deque()
-
-        tot = Decimal(0)
-        for weight, dist in zip(weights, distributions):
-            tot += weight
-            for i, d in enumerate(dist):
-                if i >= len(ret):
-                    ret.append(Decimal(0))
-                ret[i] += weight * d
-
-        for i in range(len(ret)):
-            ret[i] /= tot
-
-        return ret
-
-    def _get_score_word(self, curr_search_depth: int, guess_i: int, outer_cache: dict[Any, deque[Decimal]]) -> deque[Decimal]:
-        if self._word_reducer.is_valid(guess_i):
-            base = Decimal(1) / Decimal(self._word_reducer.num_answers())
-        else:
-            base = Decimal(0)
-
-        guess_arr, res_arrs, cnts = self._word_reducer.get_guess_distr_and_counts(guess_i)
-        
-        dists = []
-        for res_arr in res_arrs:
-            self._ss.try_add_word(guess_arr, res_arr)
-            key = self._ss.key()
-            if key not in outer_cache:
-                self._word_reducer.try_update()
-                distribution = self._get_distribution(curr_search_depth + 1)
-                self._word_reducer.undo()
-                outer_cache[key] = distribution
-
-            dists.append(outer_cache[key])
-            self._ss.undo()
-
-        r_dist = self._aggregate_distributions(cnts, dists)
-        r_dist.appendleft(base)
-
-        return r_dist
-
-    def _get_best_word(
-            self,
-            curr_search_depth: int = 0,
-            show_progress = True) -> tuple[str, deque[Decimal]]:
-        
-        total_depth = self._curr_guesses + curr_search_depth
-        remaining_guesses = self._max_guesses - total_depth
-        num_answers = self._word_reducer.num_answers()
-        if num_answers == 1:
-            return self._word_reducer.get_arbitrary_word(), deque([Decimal(1) / Decimal(num_answers)])
-        
-        highest_freq, highest_word = self._word_reducer.get_top_freq()
-        if curr_search_depth == self._max_search_depth or remaining_guesses == 1 or highest_freq > GUESS_THRESHOLD:
-            return highest_word, deque([highest_freq])
-
-        # candidate_guesses = self._candidate_guesser.get_candidate_guesses(trie.trie_words, solve_status)
-        candidate_guesses = enumerate(self._word_reducer._all_words)
-
-        best_word = None
-        best_score = -1
-        best_dist = None
-        cache = {}
-        if show_progress:
-            itr = tqdm(list(candidate_guesses))
-        else:
-            itr = candidate_guesses
-        for i, word in itr:
-            dist = self._get_score_word(curr_search_depth, i, cache)
-            score = self._score_for_dist(dist)
-            if score > best_score:
-                best_word = word
-                best_dist = dist
-                best_score = score
-
-        return best_word, best_dist
-
-    def _get_distribution(self, curr_search_depth: int) -> Optional[deque[Decimal]]:
-        _, prior_distribution = self._get_best_word(curr_search_depth, False)
-        return prior_distribution.copy()
+        return self._full_words[itr[best_idx]]
+    
+    def reset(self, word_reducer: WordReducer, solve_status: SolveStatusNp):
+        self._word_reducer = word_reducer
+        self._ss = solve_status
+        self._curr_guesses = self._base_guesses
+    

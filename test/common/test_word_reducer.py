@@ -1,7 +1,7 @@
 from collections import Counter
 import numpy as np
 
-from wordle_solver.common.guess_result import GuessResult, to_res_arr
+from wordle_solver.common.guess_result import GuessResult, to_res_arr, get_guess_result
 from wordle_solver.common.single_result import SingleResult
 from wordle_solver.common.solve_status.solve_status_np import SolveStatusNp
 from wordle_solver.common.word_reducer import WordReducer
@@ -53,7 +53,7 @@ def _test_validity(candidates: list[str], guesses: list[str], answers: list[str]
         if isinstance(answer, list):
             res = answer
         else:
-            res = _get_guess_res(guess, answer)
+            res = get_guess_result(guess, answer)
         solve_status.update(np.array(convert_word(guess)), to_res_arr(guess, res))
         word_reducer.update()
 
@@ -61,27 +61,3 @@ def _test_validity(candidates: list[str], guesses: list[str], answers: list[str]
 
         assert sorted(actual_candidates.tolist()) == sorted(expected_as)
         candidates = actual_candidates
-
-
-def _get_guess_res(guess: str, ans: str):
-    char_counts = Counter(ans)
-    ret = []
-    
-    for g_c, r_c in zip(guess, ans):
-        if g_c == r_c:
-            char_counts[g_c] -= 1
-            if char_counts[g_c] == 0:
-                del char_counts[g_c]
-
-    for g_c, r_c in zip(guess, ans):
-        if g_c == r_c:
-            ret.append(SingleResult.GREEN)
-        elif g_c in char_counts:
-            ret.append(SingleResult.YELLOW)
-            char_counts[g_c] -= 1
-            if char_counts[g_c] == 0:
-                del char_counts[g_c]
-        else:
-            ret.append(SingleResult.GRAY)
-
-    return ret
